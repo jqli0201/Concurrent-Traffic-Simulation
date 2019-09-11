@@ -1,6 +1,9 @@
 #include <iostream>
 #include <random>
+#include <chrono>
+
 #include "TrafficLight.h"
+
 
 /* Implementation of class "MessageQueue" */
 
@@ -15,9 +18,10 @@ T MessageQueue<T>::receive()
   
     // perform queue modification under the lock
     std::unique_lock<std::mutex> uLock(_mutex);
+  
     // pass unique lock to condition variable
     _cond.wait(uLock, [this] { return !_queue.empty(); });
-        std::cout << "  Message " <<  " has been sent to the queue" << std::endl;
+
     // remove last vector element from queue
     T msg = std::move(_queue.back());
     _queue.pop_back();
@@ -38,7 +42,7 @@ void MessageQueue<T>::send(T &&msg)
     // add vector to queue
     std::cout << "  Message " << msg 
         << " has been sent to the queue" << std::endl;
-    _queue.push_back(std::move(msg));
+    _queue.push_front(std::move(msg));
     // notify client after pushing new Vehicle into vector
     _cond.notify_one(); 
 }
@@ -57,6 +61,7 @@ void TrafficLight::waitForGreen()
     // calls the receive function on the message queue. 
     // Once it receives TrafficLightPhase::green, the method returns.
     while (_message.receive() != green);
+  return;
 }
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
@@ -83,10 +88,14 @@ void TrafficLight::cycleThroughPhases()
     // std::this_thread::sleep_for to wait 1ms between two cycles. 
     auto start = std::chrono::high_resolution_clock::now();
     int randNum = rand() % (6001 - 4000) + 4000;
+  	auto random = std::chrono::duration<int>(randNum*1000000);
     while (true) {
       auto now = std::chrono::high_resolution_clock::now();
-      if ((start - now).count() >= randNum) {
-        randNum = rand() % (6001 - 4000) + 4000; 
+      auto duration = now - start;
+      if (duration >= random) {
+        randNum = rand() % (6001 - 4000) + 4000;
+        random = std::chrono::duration<int>(randNum*1000000);
+        start = std::chrono::high_resolution_clock::now();
         switch(_currentPhase) {          
           case red:
             _currentPhase = green;
